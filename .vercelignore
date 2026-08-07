@@ -1,0 +1,6 @@
+serve.js
+cert-gen.js
+cloudflared.exe
+node_modules/
+.cert/
+package-lock.json
