@@ -4,13 +4,9 @@
   "private": true,
   "description": "鱼肠大王堂堂降临 - 多媒体收藏",
   "scripts": {
-    "start": "node serve.js",
+    "start": "node cloud.js",
     "dev": "node serve.js",
-    "deploy": "vercel --prod",
-    "deploy:preview": "vercel"
-  },
-  "dependencies": {
-    "localtunnel": "^2.0.2"
+    "deploy:vercel": "vercel --prod"
   },
   "engines": {
     "node": ">=18"
