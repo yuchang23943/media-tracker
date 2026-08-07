@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>鱼肠大王堂堂降临</title>
+<meta name="theme-color" content="#eff6ff" />
+<meta name="description" content="记录读过的书、看过的电影、玩过的游戏" />
+<!-- PWA：可添加到手机主屏幕，像 App 一样启动 -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="鱼肠大王堂堂降临" />
+<link rel="manifest" href="manifest.json" />
+<!-- App 图标（内联 SVG，免外部文件） -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f172a'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='%237dd3fc'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f172a'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='%237dd3fc'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E" />
+
+<!-- Tailwind CSS (CDN, JIT 模式支持任意值) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+
+<!-- Inter 字体 -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<!-- React 18 + Babel Standalone -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<style>
+  html, body {
+    background:
+      radial-gradient(1200px 600px at 100% -10%, #dbeafe 0%, transparent 55%),
+      radial-gradient(1000px 500px at -10% 0%, #ccfbf1 0%, transparent 50%),
+      linear-gradient(180deg, #eff6ff 0%, #f0f9ff 45%, #f5fdfb 100%);
+    background-attachment: fixed;
+  }
+  body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #bae6fd; border-radius: 9999px; border: 2px solid #eff6ff; }
+  ::-webkit-scrollbar-thumb:hover { background: #7dd3fc; }
+
+  /* 入场动画 */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .anim-fade { animation: fadeIn 0.2s ease-out; }
+  .anim-pop  { animation: popIn 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+  .anim-card { animation: cardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+  /* Tailwind CDN 控制台警告静音（仅视觉，不影响功能） */
+</style>
+</head>
+<body class="text-zinc-900">
+<div id="root"></div>
+
+<script type="text/plain" id="app-source">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+/* ============================================================
+   常量与配置
+   ============================================================ */
+const STORAGE_KEY = 'media-tracker-records-v1';
+
+// 类型样式（完整类名字符串，便于 Tailwind JIT 识别）
+const TYPE_META = {
+  book: {
+    label: '书',
+    fullLabel: '书籍',
+    emoji: '📚',
+    badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70',
+    gradient: 'from-amber-100 via-amber-50 to-orange-100',
+    solid: 'bg-amber-400',
+    text: 'text-amber-600',
+  },
+  movie: {
+    label: '影',
+    fullLabel: '电影',
+    emoji: '🎬',
+    badge: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/70',
+    gradient: 'from-rose-100 via-rose-50 to-pink-100',
+    solid: 'bg-rose-400',
+    text: 'text-rose-600',
+  },
+  game: {
+    label: '游',
+    fullLabel: '游戏',
+    emoji: '🎮',
+    badge: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200/70',
+    gradient: 'from-violet-100 via-violet-50 to-purple-100',
+    solid: 'bg-violet-400',
+    text: 'text-violet-600',
+  },
+};
+
+const STATUS_META = {
+  want:  { label: '想看',   badge: 'bg-zinc-100 text-zinc-600',              dot: 'bg-zinc-400' },
+  doing: { label: '进行中', badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70', dot: 'bg-blue-500' },
+  done:  { label: '已看过', badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70', dot: 'bg-emerald-500' },
+};
+
+const TABS = [
+  { key: 'all',   label: '全部' },
+  { key: 'book',  label: '书籍' },
+  { key: 'movie', label: '电影' },
+  { key: 'game',  label: '游戏' },
+];
+
+/* ============================================================
+   工具函数
+   ============================================================ */
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function loadRecords() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+function saveRecords(records) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (e) { /* ignore */ }
+}
+
+function emptyForm() {
+  return { title: '', type: 'book', rating: 0, status: 'want', cover: '', note: '', appid: '' };
+}
+
+// 联网获取真实封面：
+// - 书 / 电影：走本地代理调用豆瓣 suggest 接口，返回真实书封/海报
+//   （豆瓣接口无 CORS 头，浏览器直连被拦，必须经本地 serve.ps1 代理转发）
+// - 游戏：豆瓣无游戏数据、Steam 搜索 API 国内被墙，兜底用 AI 生成主题封面
+async function fetchCoverUrl(title, type) {
+  const t = title.trim();
+  if (!t) return null;
+
+  // 书 / 电影：豆瓣真实封面
+  if (type === 'book' || type === 'movie') {
+    try {
+      const r = await fetch(`/api/cover?q=${encodeURIComponent(t)}&type=${type}`);
+      const d = await r.json();
+      if (d.ok && d.cover) return d.cover;
+    } catch (e) { /* 代理未启动或失败，走兜底 */ }
+  }
+
+  // 游戏或兜底：AI 生成主题封面（国内可直连）
+  const prompts = {
+    book: `a professional book cover design for a book titled "${t}", elegant minimalist typography, publishing cover art`,
+    movie: `a cinematic movie poster for a film titled "${t}", dramatic lighting, movie poster layout, film still aesthetic`,
+    game: `video game cover art for a game titled "${t}", game key art, digital painting, epic atmosphere, detailed illustration`,
+  };
+  const prompt = prompts[type] || prompts.book;
+  return `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent(prompt)}&image_size=portrait_4_3`;
+}
+
+// 实时搜索建议（输入时调用，返回豆瓣匹配列表，含真实封面）
+async function fetchSuggestions(title, type) {
+  const t = title.trim();
+  if (!t) return [];
+  // 游戏：走本地预设 appid 表（Steam 搜索 API 国内被墙，但图片 CDN 可直连）
+  if (type === 'game') {
+    return searchGameDb(t);
+  }
+  if (type !== 'book' && type !== 'movie') return [];
+  try {
+    const r = await fetch(`/api/suggest?q=${encodeURIComponent(t)}&type=${type}`);
+    const d = await r.json();
+    if (d.ok && d.items) {
+      // 兼容 PowerShell 单元素数组序列化（可能返回对象而非数组）
+      return Array.isArray(d.items) ? d.items : [d.items];
+    }
+  } catch (e) { /* 代理未启动 */ }
+  return [];
+}
+
+// Steam appid → 封面图 URL（CDN 国内可直连）
+function steamCover(appid) {
+  return `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/library_600x900.jpg`;
+}
+
+// 热门游戏预设库（输入时本地匹配，封面走 Steam CDN）
+// 所有 appid 均已批量探活验证 library_600x900.jpg 真实存在
+const GAME_DB = [
+  // —— 3A 大作 ——
+  { title: '艾尔登法环', appid: 1245620, year: '2022', subtitle: 'Elden Ring' },
+  { title: '黑神话：悟空', appid: 2358720, year: '2024', subtitle: 'Black Myth: Wukong' },
+  { title: '赛博朋克 2077', appid: 1091500, year: '2020', subtitle: 'Cyberpunk 2077' },
+  { title: '荒野大镖客：救赎 2', appid: 1174180, year: '2019', subtitle: 'Red Dead Redemption 2' },
+  { title: '巫师 3：狂猎', appid: 292030, year: '2015', subtitle: 'The Witcher 3' },
+  { title: '只狼：影逝二度', appid: 814380, year: '2019', subtitle: 'Sekiro' },
+  { title: '战神', appid: 1593500, year: '2022', subtitle: 'God of War' },
+  { title: '博德之门 3', appid: 1086940, year: '2023', subtitle: "Baldur's Gate 3" },
+  { title: 'GTA V', appid: 271590, year: '2015', subtitle: 'Grand Theft Auto V' },
+  { title: '霍格沃茨之遗', appid: 990080, year: '2023', subtitle: 'Hogwarts Legacy' },
+  { title: '星空', appid: 1716740, year: '2023', subtitle: 'Starfield' },
+  { title: '死亡搁浅', appid: 1190460, year: '2020', subtitle: 'Death Stranding' },
+  { title: '对马岛之魂', appid: 2215430, year: '2024', subtitle: 'Ghost of Tsushima' },
+  { title: '上古卷轴 V', appid: 489830, year: '2016', subtitle: 'Skyrim Special Edition' },
+  { title: '心灵杀手 2', appid: 1944970, year: '2023', subtitle: 'Alan Wake 2' },
+  { title: '底特律：变人', appid: 872850, year: '2018', subtitle: 'Detroit: Become Human' },
+  // —— 独立/精品 ——
+  { title: '极乐迪斯科', appid: 632470, year: '2019', subtitle: 'Disco Elysium' },
+  { title: '哈迪斯', appid: 1145360, year: '2020', subtitle: 'Hades' },
+  { title: '双人成行', appid: 1426210, year: '2021', subtitle: 'It Takes Two' },
+  { title: '空洞骑士', appid: 524220, year: '2017', subtitle: 'Hollow Knight' },
+  { title: '蔚蓝', appid: 431960, year: '2018', subtitle: 'Celeste' },
+  { title: 'Inside', appid: 519860, year: '2016', subtitle: 'Inside' },
+  { title: '深岩银河', appid: 548370, year: '2020', subtitle: 'Deep Rock Galactic' },
+  { title: '无人深空', appid: 841370, year: '2016', subtitle: "No Man's Sky" },
+  { title: '杀戮尖塔', appid: 779330, year: '2019', subtitle: 'Slay the Spire' },
+  { title: '泰拉瑞亚', appid: 105600, year: '2011', subtitle: 'Terraria' },
+  { title: '异星工厂', appid: 637090, year: '2020', subtitle: 'Factorio' },
+  { title: '英灵神殿', appid: 892970, year: '2021', subtitle: 'Valheim' },
+  { title: '夜族崛起', appid: 936350, year: '2022', subtitle: 'V Rising' },
+  { title: '锈蚀', appid: 717940, year: '2018', subtitle: 'Rust' },
+  // —— 动作/RPG ——
+  { title: '怪物猎人：世界', appid: 582010, year: '2018', subtitle: 'Monster Hunter: World' },
+  { title: '消逝的光芒', appid: 255710, year: '2015', subtitle: 'Dying Light' },
+  { title: '消逝的光芒 2', appid: 239140, year: '2022', subtitle: 'Dying Light 2' },
+  { title: '地狱之刃', appid: 367520, year: '2017', subtitle: 'Hellblade' },
+  { title: '骑马与砍杀 2', appid: 1122310, year: '2020', subtitle: 'Bannerlord' },
+  { title: '盐与避难所', appid: 1178810, year: '2022', subtitle: 'Salt and Sanctuary' },
+  // —— 策略/模拟 ——
+  { title: '文明 VI', appid: 289070, year: '2016', subtitle: 'Civilization VI' },
+  { title: '欧卡 2', appid: 236850, year: '2012', subtitle: 'Euro Truck Simulator 2' },
+  { title: '美卡', appid: 270880, year: '2016', subtitle: 'American Truck Simulator' },
+  { title: '过山车之星', appid: 870780, year: '2016', subtitle: 'Planet Coaster' },
+  // —— 多人/竞技 ——
+  { title: 'CS2', appid: 730, year: '2023', subtitle: 'Counter-Strike 2' },
+  { title: 'Dota 2', appid: 570, year: '2013', subtitle: 'Dota 2' },
+  { title: '军团要塞 2', appid: 440, year: '2007', subtitle: 'Team Fortress 2' },
+  { title: '绝地求生', appid: 578080, year: '2017', subtitle: 'PUBG' },
+  { title: '永劫无间', appid: 768880, year: '2021', subtitle: 'NARAKA' },
+  { title: '糖豆人', appid: 704030, year: '2020', subtitle: 'Fall Guys' },
+  { title: 'Warframe', appid: 552500, year: '2013', subtitle: 'Warframe' },
+  { title: '七日杀', appid: 729610, year: '2013', subtitle: '7 Days to Die' },
+  // —— 经典/其他 ——
+  { title: '传送门 2', appid: 620, year: '2011', subtitle: 'Portal 2' },
+  { title: '传送门', appid: 400, year: '2007', subtitle: 'Portal' },
+  { title: '求生之路 2', appid: 550, year: '2009', subtitle: 'Left 4 Dead 2' },
+  { title: '盖瑞模组', appid: 4000, year: '2006', subtitle: "Garry's Mod" },
+  { title: '饥荒联机版', appid: 322330, year: '2013', subtitle: "Don't Starve Together" },
+  { title: '恐鬼症', appid: 739630, year: '2020', subtitle: 'Phasmophobia' },
+  { title: 'Among Us', appid: 817300, year: '2018', subtitle: 'Among Us' },
+  { title: '节奏光剑', appid: 813780, year: '2018', subtitle: 'Beat Saber' },
+  { title: '光环：士官长合集', appid: 894620, year: '2019', subtitle: 'Halo MCC' },
+];
+
+function searchGameDb(query) {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  return GAME_DB
+    .filter(g => g.title.toLowerCase().includes(q) || (g.subtitle || '').toLowerCase().includes(q))
+    .slice(0, 8)
+    .map(g => ({
+      title: g.title,
+      subtitle: g.subtitle,
+      year: g.year,
+      cover: steamCover(g.appid),
+      appid: g.appid,
+      source: 'steam',
+    }));
+}
+
+/* ============================================================
+   图标组件
+   ============================================================ */
+function StarIcon({ filled, className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={filled ? 0 : 1.5} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function EditIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function LinkIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+/* ============================================================
+   星级评分
+   ============================================================ */
+function StarRating({ value, onChange, size = 'sm', readOnly = false }) {
+  const [hover, setHover] = useState(0);
+  const sizes = { xs: 'w-3 h-3', sm: 'w-3.5 h-3.5', md: 'w-5 h-5', lg: 'w-6 h-6' };
+  const active = hover || value;
+  return (
+    <div className="flex items-center gap-0.5" onMouseLeave={() => setHover(0)}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          disabled={readOnly}
+          onMouseEnter={() => !readOnly && setHover(n)}
+          onClick={() => !readOnly && onChange && onChange(n)}
+          className={readOnly ? 'cursor-default' : 'cursor-pointer'}
+          aria-label={`${n} 星`}
+        >
+          <StarIcon
+            filled={active >= n}
+            className={`${sizes[size]} ${active >= n ? 'text-amber-400' : 'text-zinc-300'} transition-colors`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================
+   小标签
+   ============================================================ */
+function TypeBadge({ type }) {
+  const m = TYPE_META[type];
+  if (!m) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${m.badge}`}>
+      <span className="text-[11px] leading-none">{m.emoji}</span>
+      <span>{m.fullLabel}</span>
+    </span>
+  );
+}
+
+function StatusBadge({ status }) {
+  const m = STATUS_META[status];
+  if (!m) return null;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${m.badge}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
+      <span>{m.label}</span>
+    </span>
+  );
+}
+
+/* ============================================================
+   封面（有图显图，无图渐变占位）
+   ============================================================ */
+function Cover({ record }) {
+  const m = TYPE_META[record.type] || TYPE_META.book;
+  const [imgOk, setImgOk] = useState(!!record.cover);
+  useEffect(() => { setImgOk(!!record.cover); }, [record.cover, record.id]);
+
+  return (
+    <div className="relative aspect-[3/4] w-full overflow-hidden">
+      {/* 渐变占位层 */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${m.gradient}`} />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-6xl opacity-50 select-none">{m.emoji}</span>
+      </div>
+      {/* 真实封面 */}
+      {record.cover && imgOk && (
+        <img
+          src={record.cover}
+          alt={record.title}
+          loading="lazy"
+          onError={() => setImgOk(false)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+      {/* 顶部渐隐，让标签更清晰 */}
+      <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/15 to-transparent" />
+    </div>
+  );
+}
+
+/* ============================================================
+   卡片
+   ============================================================ */
+function RecordCard({ record, onEdit, onDelete, index }) {
+  const [confirming, setConfirming] = useState(false);
+  const meta = TYPE_META[record.type] || TYPE_META.book;
+
+  return (
+    <div
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-sky-100/80 bg-white shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 anim-card"
+      style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
+      onMouseLeave={() => setConfirming(false)}
+    >
+      {/* 封面 */}
+      <div className="relative">
+        <Cover record={record} />
+        {/* 左上：类型 */}
+        <div className="absolute left-3 top-3">
+          <TypeBadge type={record.type} />
+        </div>
+        {/* 右上：状态 */}
+        <div className="absolute right-3 top-3">
+          <StatusBadge status={record.status} />
+        </div>
+      </div>
+
+      {/* 内容 */}
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="truncate text-[15px] font-semibold text-zinc-900" title={record.title}>
+          {record.title}
+        </h3>
+
+        <div className="mt-1.5 flex items-center gap-2">
+          <StarRating value={record.rating} readOnly size="sm" />
+          <span className="text-xs text-zinc-400">{record.rating ? `${record.rating}.0` : '未评'}</span>
+        </div>
+
+        {record.note ? (
+          <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-zinc-500">{record.note}</p>
+        ) : (
+          <p className="mt-2 text-[13px] italic text-zinc-300">还没有写下评价</p>
+        )}
+
+        {/* 操作按钮区：手机默认可见，桌面端 hover 显示 */}
+        <div className="mt-3 flex items-center justify-end gap-1 opacity-100 transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100">
+          {!confirming ? (
+            <>
+              <button
+                onClick={() => onEdit(record)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+                title="编辑"
+              >
+                <EditIcon className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setConfirming(true)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                title="删除"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => onDelete(record.id)}
+              className="rounded-lg bg-rose-600 px-3 py-1 text-xs font-medium text-white hover:bg-rose-700 transition-colors"
+            >
+              确认删除
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   空状态
+   ============================================================ */
+function EmptyState({ onAdd }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sky-200/70 bg-white/50 px-6 py-16 text-center sm:py-20">
+      <div className="flex items-center gap-2 text-4xl">
+        <span>📚</span><span>🎬</span><span>🎮</span>
+      </div>
+      <h3 className="mt-5 text-lg font-semibold text-zinc-900">还没有任何记录</h3>
+      <p className="mt-1.5 max-w-sm text-sm text-zinc-500">
+        把读过的书、看过的电影、玩过的游戏都记下来，让回忆有个落脚的地方。
+      </p>
+      <button
+        onClick={onAdd}
+        className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+      >
+        <PlusIcon className="h-4 w-4" />
+        添加第一条记录
+      </button>
+    </div>
+  );
+}
+
+/* ============================================================
+   Modal：添加 / 编辑
+   ============================================================ */
+function RecordModal({ open, initial, onClose, onSave }) {
+  const [form, setForm] = useState(emptyForm());
+  const [err, setErr] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [coverStatus, setCoverStatus] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setForm(initial ? { ...emptyForm(), ...initial } : emptyForm());
+      setErr('');
+      setCoverStatus('');
+      setSearching(false);
+      setSuggestions([]);
+      setShowSuggest(false);
+      setSuggestLoading(false);
+    }
+  }, [open, initial]);
+
+  // 标题输入时实时搜索建议（debounce 350ms）
+  // 书/电影走豆瓣代理，游戏走本地预设 appid 表
+  useEffect(() => {
+    const q = form.title.trim();
+    if (q.length < 1) { setSuggestions([]); setShowSuggest(false); return; }
+    let cancelled = false;
+    setSuggestLoading(true);
+    // 游戏本地匹配无网络延迟，无需 debounce
+    const delay = form.type === 'game' ? 0 : 350;
+    const timer = setTimeout(async () => {
+      const items = await fetchSuggestions(q, form.type);
+      if (cancelled) return;
+      setSuggestions(items);
+      setShowSuggest(true);
+      setSuggestLoading(false);
+    }, delay);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [form.title, form.type]);
+
+  // ESC 关闭
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // 选中某条建议：填入标题和封面（游戏额外带 appid）
+  const pickSuggestion = (item) => {
+    setForm((f) => ({ ...f, title: item.title, cover: item.cover, appid: item.appid || '' }));
+    setCoverStatus('✓ 已选中真实封面');
+    setShowSuggest(false);
+  };
+
+  const submit = () => {
+    if (!form.title.trim()) { setErr('请填写标题'); return; }
+    onSave({ ...form, title: form.title.trim() });
+  };
+
+  // 联网获取真实封面：书/电影走豆瓣，游戏走 AI 生成
+  const autoFetch = async () => {
+    if (!form.title.trim()) { setCoverStatus('请先填写标题'); return; }
+    setSearching(true);
+    setCoverStatus(form.type === 'game' ? '正在生成封面…（约需几秒）' : '正在搜索真实封面…');
+    try {
+      const url = await fetchCoverUrl(form.title, form.type);
+      if (!url) { setCoverStatus('未找到封面，可手动粘贴链接'); setSearching(false); return; }
+      // 用 Image 预加载验证图片可访问
+      const img = new Image();
+      img.onload = () => {
+        set('cover', url);
+        setCoverStatus(form.type === 'game' ? '✓ 已生成封面' : '✓ 已找到真实封面');
+        setSearching(false);
+      };
+      img.onerror = () => {
+        setCoverStatus('封面加载失败，可手动粘贴链接');
+        setSearching(false);
+      };
+      img.src = url;
+    } catch (e) {
+      setCoverStatus('搜索失败，可手动粘贴链接');
+      setSearching(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 遮罩 */}
+      <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm anim-fade" onClick={onClose} />
+
+      {/* 弹窗主体 */}
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl anim-pop">
+        <div className="flex items-center justify-between p-6 pb-4 sm:p-7">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-900">
+              {initial ? '编辑记录' : '添加记录'}
+            </h2>
+            <p className="mt-0.5 text-sm text-zinc-500">记录一段值得回味的体验</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* 表单内容（可滚动） */}
+        <div className="flex-1 overflow-y-auto px-6 pb-3 sm:px-7">
+
+        {/* 标题（带实时搜索建议） */}
+        <div className="mb-4 relative">
+          <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+            标题 <span className="text-rose-500">*</span>
+            <span className="ml-2 text-xs font-normal text-zinc-400">
+              {form.type === 'game'
+                ? '输入游戏名自动匹配 Steam 真实封面'
+                : '输入书名/片名自动匹配真实封面'}
+            </span>
+          </label>
+          <input
+            value={form.title}
+            onChange={(e) => { set('title', e.target.value); setCoverStatus(''); }}
+            onFocus={() => suggestions.length > 0 && setShowSuggest(true)}
+            onBlur={() => setTimeout(() => setShowSuggest(false), 200)}
+            placeholder="例如：三体 / 星际穿越 / 艾尔登法环"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 transition"
+            autoFocus
+          />
+          {/* 实时建议下拉 */}
+          {showSuggest && (
+            <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg max-h-72 overflow-y-auto">
+              {suggestLoading && (
+                <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-zinc-400">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  正在搜索…
+                </div>
+              )}
+              {!suggestLoading && suggestions.length === 0 && (
+                <div className="px-3 py-2.5 text-sm text-zinc-400">未找到匹配，可直接输入或用"找封面"按钮</div>
+              )}
+              {!suggestLoading && suggestions.map((item, i) => (
+                <button
+                  key={item.id || i}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); pickSuggestion(item); }}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-zinc-50 transition-colors"
+                >
+                  <img
+                    src={item.cover}
+                    alt=""
+                    className="h-12 w-9 shrink-0 rounded object-cover bg-zinc-100"
+                    onError={(e) => { e.target.style.visibility = 'hidden'; }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-zinc-900">{item.title}</div>
+                    <div className="truncate text-xs text-zinc-400">
+                      {[item.author, item.subtitle, item.year].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 类型 */}
+        <div className="mb-4">
+          <label className="mb-1.5 block text-sm font-medium text-zinc-700">类型</label>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(TYPE_META).map(([key, m]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => set('type', key)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition ${
+                  form.type === key
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+                }`}
+              >
+                <span>{m.emoji}</span><span>{m.fullLabel}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 评分 + 状态 */}
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-700">评分</label>
+            <div className="flex h-[42px] items-center rounded-lg border border-zinc-200 px-3">
+              <StarRating value={form.rating} onChange={(n) => set('rating', n)} size="md" />
+              <span className="ml-2 text-sm text-zinc-400">{form.rating ? `${form.rating}.0` : '未评'}</span>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-700">状态</label>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(STATUS_META).map(([key, m]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => set('status', key)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                    form.status === key
+                      ? 'border-zinc-900 bg-zinc-900 text-white'
+                      : 'border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 封面图片 */}
+        <div className="mb-4">
+          <label className="mb-1.5 block text-sm font-medium text-zinc-700">封面图片 <span className="text-zinc-400 font-normal">(可自动获取或手动粘贴)</span></label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                <LinkIcon className="h-4 w-4" />
+              </span>
+              <input
+                value={form.cover}
+                onChange={(e) => { set('cover', e.target.value); setCoverStatus(''); }}
+                placeholder="https://..."
+                className="w-full rounded-lg border border-zinc-200 bg-white py-2.5 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 transition"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={autoFetch}
+              disabled={searching || !form.title.trim()}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              title="根据标题联网搜索封面"
+            >
+              {searching ? (
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <SearchIcon className="h-4 w-4" />
+              )}
+              {searching ? '搜索中' : '找封面'}
+            </button>
+          </div>
+          {coverStatus && (
+            <p className={`mt-1.5 text-xs ${coverStatus.startsWith('✓') ? 'text-emerald-600' : 'text-zinc-500'}`}>{coverStatus}</p>
+          )}
+          {form.cover && (
+            <div className="mt-2 w-28 overflow-hidden rounded-lg border border-zinc-100">
+              <img
+                src={form.cover}
+                alt="封面预览"
+                className="h-36 w-full object-cover"
+                onError={(e) => { e.target.parentElement.style.display = 'none'; }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Steam AppID（仅游戏，填了自动拿真实封面） */}
+        {form.type === 'game' && (
+          <div className="mb-4">
+            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
+              Steam AppID <span className="text-zinc-400 font-normal">(可选，用于获取真实游戏封面)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={form.appid || ''}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '');
+                  set('appid', v);
+                  if (v) {
+                    set('cover', steamCover(v));
+                    setCoverStatus('✓ 已获取 Steam 真实封面');
+                  } else {
+                    setCoverStatus('');
+                  }
+                }}
+                placeholder="例如：1245620"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 transition"
+              />
+              <a
+                href="https://store.steampowered.com/search/?term="
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+                title="打开 Steam 商店搜索游戏，URL 里的数字就是 AppID"
+              >
+                查 AppID
+              </a>
+            </div>
+            <p className="mt-1.5 text-xs text-zinc-400">
+              打开 Steam 商店页搜索游戏，网址 <code className="rounded bg-zinc-100 px-1">store.steampowered.com/app/<b>1245620</b></code> 里的数字就是 AppID
+            </p>
+          </div>
+        )}
+
+        {/* 评价 */}
+        <div className="mb-5">
+          <label className="mb-1.5 block text-sm font-medium text-zinc-700">个人评价 <span className="text-zinc-400 font-normal">(可选)</span></label>
+          <textarea
+            value={form.note}
+            onChange={(e) => set('note', e.target.value)}
+            rows={3}
+            placeholder="一句话写下你的感受…"
+            className="w-full resize-none rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 transition"
+          />
+        </div>
+
+        {/* 错误 */}
+        {err && <div className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{err}</div>}
+
+        </div>
+
+        {/* 底部操作（固定在 Modal 底部，始终可见） */}
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-100 p-4 px-6 sm:px-7">
+          <button
+            onClick={onClose}
+            className="rounded-full border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={submit}
+            className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+          >
+            {initial ? '保存修改' : '添加'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   主应用
+   ============================================================ */
+function App() {
+  const [records, setRecords] = useState([]);
+  const [tab, setTab] = useState('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null); // null = 新增；record = 编辑
+
+  // 初始化加载
+  useEffect(() => {
+    const saved = loadRecords();
+    if (saved) {
+      setRecords(saved);
+    } else {
+      // 首次进入，给几条示例数据让页面不那么空
+      const samples = [
+        { id: uid(), title: '三体', type: 'book',  rating: 5, status: 'done',  cover: 'https://img1.doubanio.com/view/subject/l/public/s2768378.jpg', note: '黑暗森林法则震撼人心，中国科幻的巅峰。' },
+        { id: uid(), title: '星际穿越', type: 'movie', rating: 5, status: 'done', cover: 'https://img3.doubanio.com/view/photo/l_ratio_poster/public/p2614988097.jpg', note: '爱是唯一能跨越时空的维度。' },
+        { id: uid(), title: '艾尔登法环', type: 'game', rating: 5, status: 'doing', cover: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/library_600x900.jpg', note: '交界地的每一次倒下都让人想再来一次。' },
+        { id: uid(), title: '百年孤独', type: 'book', rating: 4, status: 'want', cover: 'https://img2.doubanio.com/view/subject/l/public/s6384944.jpg', note: '马尔克斯的魔幻现实主义，早就想读了。' },
+      ];
+      setRecords(samples);
+      saveRecords(samples);
+    }
+  }, []);
+
+  // 持久化
+  const persist = useCallback((next) => {
+    setRecords(next);
+    saveRecords(next);
+  }, []);
+
+  const handleSave = (data) => {
+    if (editing) {
+      persist(records.map((r) => (r.id === editing.id ? { ...r, ...data, id: editing.id } : r)));
+    } else {
+      persist([{ id: uid(), ...data }, ...records]);
+    }
+    setModalOpen(false);
+    setEditing(null);
+  };
+
+  const handleDelete = (id) => {
+    persist(records.filter((r) => r.id !== id));
+  };
+
+  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (rec) => { setEditing(rec); setModalOpen(true); };
+
+  // 过滤 + 计数
+  const counts = useMemo(() => ({
+    all: records.length,
+    book: records.filter((r) => r.type === 'book').length,
+    movie: records.filter((r) => r.type === 'movie').length,
+    game: records.filter((r) => r.type === 'game').length,
+  }), [records]);
+
+  const visible = useMemo(() => {
+    const list = tab === 'all' ? records : records.filter((r) => r.type === tab);
+    // 已看过 / 进行中 优先于想看，高评分优先
+    const order = { doing: 0, done: 1, want: 2 };
+    return [...list].sort((a, b) => {
+      const s = (order[a.status] ?? 9) - (order[b.status] ?? 9);
+      if (s !== 0) return s;
+      return (b.rating || 0) - (a.rating || 0);
+    });
+  }, [records, tab]);
+
+  return (
+    <div className="min-h-screen">
+      {/* 顶部栏 */}
+      <header className="sticky top-0 z-30 border-b border-sky-100/60 bg-white/70 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-sky-300 shadow-sm">
+              <span className="text-lg">✦</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl">鱼肠大王堂堂降临</h1>
+              <span className="hidden text-sm text-sky-400/80 sm:inline">Collection</span>
+            </div>
+          </div>
+          <button
+            onClick={openAdd}
+            className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-zinc-700 hover:shadow-md sm:px-4"
+          >
+            <PlusIcon className="h-4 w-4" />
+            添加记录
+          </button>
+        </div>
+      </header>
+
+      {/* 主内容 */}
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        {/* Tab 切换 */}
+        <div className="mb-8 flex flex-wrap items-center gap-1.5">
+          {TABS.map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-zinc-900 text-white shadow-sm'
+                    : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}
+              >
+                <span>{t.label}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none ${active ? 'bg-white/20 text-white' : 'bg-zinc-200/70 text-zinc-500'}`}>
+                  {counts[t.key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 列表 / 空状态 */}
+        {visible.length === 0 ? (
+          <EmptyState onAdd={openAdd} />
+        ) : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visible.map((rec, i) => (
+              <RecordCard
+                key={rec.id}
+                record={rec}
+                index={i}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 底部说明 */}
+        <footer className="mt-14 border-t border-sky-100/60 pt-6 text-center text-xs text-sky-400/70">
+          数据保存在浏览器本地 (localStorage)，刷新不会丢失 · 共 {records.length} 条记录
+        </footer>
+      </main>
+
+      <RecordModal
+        open={modalOpen}
+        initial={editing}
+        onClose={() => { setModalOpen(false); setEditing(null); }}
+        onSave={handleSave}
+      />
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+<script>
+  // 手动编译 JSX：强制 classic runtime（React.createElement），
+  // 避免 Babel 默认的 automatic runtime 注入 import 语句导致非 module 脚本报错。
+  (function () {
+    var src = document.getElementById('app-source').textContent;
+    var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
+    var s = document.createElement('script');
+    s.textContent = out;
+    document.body.appendChild(s);
+  })();
+</script>
+<script>
+  // 注册 Service Worker：让网站可被"安装"为 PWA
+  // 要求 HTTPS 或 localhost，自签证书需先被浏览器信任
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        console.log('[SW] registered', reg.scope);
+      }).catch(function (err) {
+        console.warn('[SW] register failed', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
