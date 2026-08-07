@@ -1,0 +1,8 @@
+node_modules/
+.cert/
+cloudflared.exe
+*.log
+.DS_Store
+Thumbs.db
+
+.vercel
