@@ -1,0 +1,20 @@
+{
+  "name": "鱼肠大王堂堂降临",
+  "short_name": "鱼肠大王",
+  "description": "鱼肠大王堂堂降临 的多媒体收藏",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eff6ff",
+  "theme_color": "#eff6ff",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
